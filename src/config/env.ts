@@ -9,9 +9,15 @@ const envSchema = z.object({
 
   GEMINI_API_KEY: z.string().min(1),
 
-  DATABASE_URL: z.string().optional(),
+  MONGODB_URI: z.string().min(1),
 
-  JWT_SECRET: z.string().optional(),
+  JWT_ACCESS_SECRET: z.string().min(32),
+  JWT_REFRESH_SECRET: z.string().min(32),
+
+  ACCESS_TOKEN_EXPIRES_IN: z.string().default("15m"),
+  REFRESH_TOKEN_EXPIRES_IN: z.string().default("30d"),
+
+  DATABASE_URL: z.string().optional(),
 });
 
 const result = envSchema.safeParse(process.env);
