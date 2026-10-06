@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/app-error.js";
+import { ZodError } from "zod";
 
 export function errorMiddleware(
   error: unknown,
@@ -15,6 +16,19 @@ export function errorMiddleware(
       error: {
         code: error.code,
         message: error.message,
+      },
+    });
+    return;
+  }
+
+  if (error instanceof ZodError) {
+    // Return the first error message from Zod validation
+    const message = error.errors?.[0]?.message || error.issues?.[0]?.message || "Validation failed";
+    response.status(400).json({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message,
       },
     });
     return;

@@ -15,3 +15,13 @@ export const loginSchema = z.object({
 
   password: z.string().min(1),
 });
+
+export const completeProfileSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name must be at least 2 characters")
+    .max(100, "Name must not exceed 100 characters"),
+
+  avatarUrl: z.string().url("Invalid avatar URL").nullable().optional(),
+});

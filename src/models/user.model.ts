@@ -8,6 +8,7 @@ export interface IUser extends Document {
   avatarUrl?: string;
 
   emailVerified: boolean;
+  profileCompleted: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +38,11 @@ const userSchema = new Schema<IUser>(
     },
 
     emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    profileCompleted: {
       type: Boolean,
       default: false,
     },

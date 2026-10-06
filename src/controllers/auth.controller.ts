@@ -1,8 +1,19 @@
 import type { Request, Response } from "express";
 
-import { registerSchema, loginSchema } from "../schemas/auth.schema.js";
+import {
+  registerSchema,
+  loginSchema,
+  completeProfileSchema,
+} from "../schemas/auth.schema.js";
 
-import { registerUser, loginUser } from "../services/auth/auth.service.js";
+import {
+  registerUser,
+  loginUser,
+  completeProfile,
+  getUserProfile,
+} from "../services/auth/auth.service.js";
+
+import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 
 // Register
 export async function register(request: Request, response: Response) {
@@ -25,5 +36,56 @@ export async function login(request: Request, response: Response) {
   return response.status(200).json({
     success: true,
     data: result,
+  });
+}
+
+// Complete Profile
+export async function completeUserProfile(
+  request: Request,
+  response: Response,
+) {
+  const input = completeProfileSchema.parse(request.body);
+
+  const userId = (request as AuthenticatedRequest).userId;
+
+  if (!userId) {
+    return response.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
+  const user = await completeProfile(userId, input as any);
+
+  return response.status(200).json({
+    success: true,
+    message: "Profile updated successfully",
+    data: {
+      user,
+    },
+  });
+}
+
+// Get Profile
+export async function getProfile(
+  request: Request,
+  response: Response,
+) {
+  const userId = (request as AuthenticatedRequest).userId;
+
+  if (!userId) {
+    return response.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
+  const user = await getUserProfile(userId);
+
+  return response.status(200).json({
+    success: true,
+    data: {
+      user,
+    },
   });
 }
