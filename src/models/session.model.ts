@@ -5,6 +5,7 @@ export interface ISession extends Document {
   refreshTokenHash: string;
   expiresAt: Date;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const sessionSchema = new Schema<ISession>(
@@ -13,6 +14,7 @@ const sessionSchema = new Schema<ISession>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     refreshTokenHash: {
@@ -31,6 +33,7 @@ const sessionSchema = new Schema<ISession>(
   },
 );
 
+// Automatically remove expired sessions
 sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const Session = model<ISession>("Session", sessionSchema);

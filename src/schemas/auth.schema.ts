@@ -25,3 +25,8 @@ export const completeProfileSchema = z.object({
 
   avatarUrl: z.string().url("Invalid avatar URL").nullable().optional(),
 });
+
+// Refresh Token
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, "Refresh token is required"),
+});

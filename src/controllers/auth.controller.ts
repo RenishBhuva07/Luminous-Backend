@@ -4,6 +4,7 @@ import {
   registerSchema,
   loginSchema,
   completeProfileSchema,
+  refreshTokenSchema,
 } from "../schemas/auth.schema.js";
 
 import {
@@ -11,6 +12,8 @@ import {
   loginUser,
   completeProfile,
   getUserProfile,
+  refreshAccessToken,
+  logoutUser,
 } from "../services/auth/auth.service.js";
 
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
@@ -32,6 +35,30 @@ export async function login(request: Request, response: Response) {
   const input = loginSchema.parse(request.body);
 
   const result = await loginUser(input);
+
+  return response.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+// Refresh Token
+export async function refresh(request: Request, response: Response) {
+  const input = refreshTokenSchema.parse(request.body);
+
+  const result = await refreshAccessToken(input.refreshToken);
+
+  return response.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+// Logout
+export async function logout(request: Request, response: Response) {
+  const input = refreshTokenSchema.parse(request.body);
+
+  const result = await logoutUser(input.refreshToken);
 
   return response.status(200).json({
     success: true,
@@ -67,10 +94,7 @@ export async function completeUserProfile(
 }
 
 // Get Profile
-export async function getProfile(
-  request: Request,
-  response: Response,
-) {
+export async function getProfile(request: Request, response: Response) {
   const userId = (request as AuthenticatedRequest).userId;
 
   if (!userId) {

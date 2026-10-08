@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 
-import { env } from "../config/env.js";
+import { env } from "../../config/env.js";
 
 export function createAccessToken(userId: string): string {
   return jwt.sign(

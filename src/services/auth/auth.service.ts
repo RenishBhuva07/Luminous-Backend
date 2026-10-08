@@ -8,7 +8,7 @@ import {
   createAccessToken,
   createRefreshToken,
   hashRefreshToken,
-} from "../../models/token.service.js";
+} from "./token.service.js";
 
 interface RegisterInput {
   email: string;
@@ -86,7 +86,11 @@ export async function loginUser(input: LoginInput) {
   const user = await User.findOne({ email }).select("+passwordHash");
 
   if (!user || !user.passwordHash) {
-    throw new AppError("User not found. Please create a new account.", 404, "USER_NOT_FOUND");
+    throw new AppError(
+      "User not found. Please create a new account.",
+      404,
+      "USER_NOT_FOUND",
+    );
   }
 
   const isValid = await verifyPassword(input.password, user.passwordHash);
@@ -170,5 +174,64 @@ export async function getUserProfile(userId: string) {
     avatarUrl: user.avatarUrl ?? null,
     emailVerified: user.emailVerified,
     profileCompleted: user.profileCompleted,
+  };
+}
+
+// REFRESH TOKEN
+export async function refreshAccessToken(refreshToken: string) {
+  const refreshTokenHash = hashRefreshToken(refreshToken);
+
+  const session = await Session.findOne({
+    refreshTokenHash,
+  });
+
+  if (!session) {
+    throw new AppError(
+      "Invalid or expired refresh token",
+      401,
+      "INVALID_REFRESH_TOKEN",
+    );
+  }
+
+  // Extra protection in case MongoDB TTL cleanup hasn't happened yet
+  if (session.expiresAt.getTime() <= Date.now()) {
+    await Session.deleteOne({ _id: session._id });
+
+    throw new AppError(
+      "Refresh token has expired",
+      401,
+      "REFRESH_TOKEN_EXPIRED",
+    );
+  }
+
+  // Create new tokens
+  const newAccessToken = createAccessToken(session.userId.toString());
+
+  const newRefreshToken = createRefreshToken();
+
+  // Store ONLY the hash of the new refresh token
+  session.refreshTokenHash = hashRefreshToken(newRefreshToken);
+
+  // Extend session for another 30 days
+  session.expiresAt = createSessionExpiry();
+
+  await session.save();
+
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+  };
+}
+
+// LOGOUT
+export async function logoutUser(refreshToken: string) {
+  const refreshTokenHash = hashRefreshToken(refreshToken);
+
+  await Session.deleteOne({
+    refreshTokenHash,
+  });
+
+  return {
+    message: "Logged out successfully",
   };
 }
