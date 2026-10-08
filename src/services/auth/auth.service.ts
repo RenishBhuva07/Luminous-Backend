@@ -13,11 +13,15 @@ import {
 interface RegisterInput {
   email: string;
   password: string;
+  deviceName?: string;
+  deviceType?: string;
 }
 
 interface LoginInput {
   email: string;
   password: string;
+  deviceName?: string;
+  deviceType?: string;
 }
 
 function createSessionExpiry(): Date {
@@ -51,15 +55,18 @@ export async function registerUser(input: RegisterInput) {
     profileCompleted: false,
   });
 
-  const accessToken = createAccessToken(user.id);
-
   const refreshToken = createRefreshToken();
 
-  await Session.create({
+  const session = await Session.create({
     userId: user._id,
     refreshTokenHash: hashRefreshToken(refreshToken),
+    deviceName: input.deviceName || "Unknown Device",
+    deviceType: input.deviceType || "Unknown",
+    lastActiveAt: new Date(),
     expiresAt: createSessionExpiry(),
   });
+
+  const accessToken = createAccessToken(user.id, session._id.toString());
 
   return {
     user: {
@@ -99,15 +106,28 @@ export async function loginUser(input: LoginInput) {
     throw new AppError("Incorrect password.", 401, "UNAUTHORIZED");
   }
 
-  const accessToken = createAccessToken(user.id);
-
   const refreshToken = createRefreshToken();
 
-  await Session.create({
+  const deviceName = input.deviceName || "Unknown Device";
+  const deviceType = input.deviceType || "Unknown";
+
+  // Prevent duplicate sessions for the same device
+  await Session.deleteMany({
+    userId: user._id,
+    deviceName,
+    deviceType,
+  });
+
+  const session = await Session.create({
     userId: user._id,
     refreshTokenHash: hashRefreshToken(refreshToken),
+    deviceName,
+    deviceType,
+    lastActiveAt: new Date(),
     expiresAt: createSessionExpiry(),
   });
+
+  const accessToken = createAccessToken(user.id, session._id.toString());
 
   return {
     user: {
@@ -205,7 +225,10 @@ export async function refreshAccessToken(refreshToken: string) {
   }
 
   // Create new tokens
-  const newAccessToken = createAccessToken(session.userId.toString());
+  const newAccessToken = createAccessToken(
+    session.userId.toString(),
+    session._id.toString(),
+  );
 
   const newRefreshToken = createRefreshToken();
 
@@ -214,6 +237,7 @@ export async function refreshAccessToken(refreshToken: string) {
 
   // Extend session for another 30 days
   session.expiresAt = createSessionExpiry();
+  session.lastActiveAt = new Date();
 
   await session.save();
 
@@ -234,4 +258,150 @@ export async function logoutUser(refreshToken: string) {
   return {
     message: "Logged out successfully",
   };
+}
+
+// CHANGE PASSWORD
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+) {
+  const user = await User.findById(userId).select("+passwordHash");
+
+  if (!user) {
+    throw new AppError("User not found", 404, "USER_NOT_FOUND");
+  }
+
+  if (!user.passwordHash) {
+    throw new AppError(
+      "Password authentication is not available for this account",
+      400,
+      "PASSWORD_NOT_AVAILABLE",
+    );
+  }
+
+  const isCurrentPasswordValid = await verifyPassword(
+    currentPassword,
+    user.passwordHash,
+  );
+
+  if (!isCurrentPasswordValid) {
+    throw new AppError(
+      "Current password is incorrect",
+      401,
+      "INVALID_CURRENT_PASSWORD",
+    );
+  }
+
+  const isSamePassword = await verifyPassword(newPassword, user.passwordHash);
+
+  if (isSamePassword) {
+    throw new AppError(
+      "New password must be different from current password",
+      400,
+      "PASSWORD_SAME_AS_CURRENT",
+    );
+  }
+
+  const newPasswordHash = await hashPassword(newPassword);
+
+  user.passwordHash = newPasswordHash;
+  user.sessionInvalidatedAt = new Date();
+
+  await user.save();
+
+  // Invalidate all refresh-token sessions.
+  // User will need to login again on all devices.
+  await Session.deleteMany({
+    userId: user._id,
+  });
+
+  return {
+    message: "Password changed successfully",
+  };
+}
+
+// DELETE ACCOUNT
+export async function deleteAccount(
+  userId: string,
+  password: string,
+  reason?: string,
+) {
+  const user = await User.findById(userId).select("+passwordHash");
+
+  if (!user) {
+    throw new AppError("User not found", 404, "USER_NOT_FOUND");
+  }
+
+  if (!user.passwordHash) {
+    throw new AppError(
+      "Password authentication is not available for this account",
+      400,
+      "PASSWORD_NOT_AVAILABLE",
+    );
+  }
+
+  const isPasswordValid = await verifyPassword(password, user.passwordHash);
+
+  if (!isPasswordValid) {
+    throw new AppError("Incorrect password", 401, "INVALID_PASSWORD");
+  }
+
+  // Optional:
+  // You can store the deletion reason in an analytics/audit
+  // collection later if you need it.
+  console.log(
+    `Account deletion requested for user ${user.id}`,
+    reason ? `Reason: ${reason}` : "",
+  );
+
+  // Delete all active sessions first
+  await Session.deleteMany({
+    userId: user._id,
+  });
+
+  // Delete the user
+  await User.deleteOne({
+    _id: user._id,
+  });
+
+  return {
+    message: "Account deleted successfully",
+  };
+}
+
+// GET ACTIVE SESSIONS
+export async function getActiveSessions(
+  userId: string,
+  currentSessionId?: string,
+) {
+  const sessions = await Session.find({ userId })
+    .select("_id deviceName deviceType lastActiveAt createdAt")
+    .sort({ lastActiveAt: -1 });
+
+  return sessions.map((session) => ({
+    id: session._id,
+    deviceName: session.deviceName,
+    deviceType: session.deviceType,
+    lastActiveAt: session.lastActiveAt,
+    isCurrentDevice: currentSessionId === session._id.toString(),
+  }));
+}
+
+// REVOKE SESSION
+export async function revokeSession(userId: string, sessionId: string) {
+  const result = await Session.deleteOne({
+    _id: sessionId,
+    userId,
+  });
+
+  if (result.deletedCount === 0) {
+    throw new AppError(
+      "Session not found or already deleted",
+      404,
+      "SESSION_NOT_FOUND",
+    );
+  }
+
+  return { message: "Session revoked successfully" };
 }

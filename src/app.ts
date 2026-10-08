@@ -21,6 +21,14 @@ app.use(apiRateLimiter);
 
 app.use("/api/v1", apiRoutes);
 
+// Catch-all for 404 routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Session expired. Please log in again.",
+  });
+});
+
 app.use(errorMiddleware);
 
 export default app;

@@ -9,6 +9,7 @@ export interface IUser extends Document {
 
   emailVerified: boolean;
   profileCompleted: boolean;
+  sessionInvalidatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,6 +46,10 @@ const userSchema = new Schema<IUser>(
     profileCompleted: {
       type: Boolean,
       default: false,
+    },
+
+    sessionInvalidatedAt: {
+      type: Date,
     },
   },
   {

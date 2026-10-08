@@ -3,11 +3,12 @@ import jwt from "jsonwebtoken";
 
 import { env } from "../../config/env.js";
 
-export function createAccessToken(userId: string): string {
+export function createAccessToken(userId: string, sessionId?: string): string {
   return jwt.sign(
     {
       sub: userId,
       type: "access",
+      ...(sessionId ? { sessionId } : {}),
     },
     env.JWT_ACCESS_SECRET,
     {

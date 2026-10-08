@@ -5,6 +5,8 @@ import {
   loginSchema,
   completeProfileSchema,
   refreshTokenSchema,
+  changePasswordSchema,
+  deleteAccountSchema,
 } from "../schemas/auth.schema.js";
 
 import {
@@ -14,6 +16,10 @@ import {
   getUserProfile,
   refreshAccessToken,
   logoutUser,
+  changePassword,
+  deleteAccount,
+  getActiveSessions,
+  revokeSession,
 } from "../services/auth/auth.service.js";
 
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
@@ -111,5 +117,101 @@ export async function getProfile(request: Request, response: Response) {
     data: {
       user,
     },
+  });
+}
+
+// Change Password
+export async function changeUserPassword(request: Request, response: Response) {
+  const input = changePasswordSchema.parse(request.body);
+
+  const userId = (request as AuthenticatedRequest).userId;
+
+  if (!userId) {
+    return response.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
+  const result = await changePassword(
+    userId,
+    input.currentPassword,
+    input.newPassword,
+  );
+
+  return response.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+// Delete Account
+export async function deleteUserAccount(request: Request, response: Response) {
+  const input = deleteAccountSchema.parse(request.body);
+
+  const userId = (request as AuthenticatedRequest).userId;
+
+  if (!userId) {
+    return response.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
+  const result = await deleteAccount(userId, input.password, input.reason);
+
+  return response.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+// Get Sessions
+export async function getSessions(request: Request, response: Response) {
+  const userId = (request as AuthenticatedRequest).userId;
+
+  if (!userId) {
+    return response.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
+  const sessionId = (request as AuthenticatedRequest).sessionId;
+
+  const sessions = await getActiveSessions(userId, sessionId);
+
+  return response.status(200).json({
+    success: true,
+    data: {
+      sessions,
+    },
+  });
+}
+
+// Revoke Session
+export async function revokeUserSession(request: Request, response: Response) {
+  const userId = (request as AuthenticatedRequest).userId;
+  const sessionId = request.params.id;
+
+  if (!userId) {
+    return response.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+  
+  if (!sessionId) {
+    return response.status(400).json({
+      success: false,
+      message: "Session ID is required",
+    });
+  }
+
+  const result = await revokeSession(userId, sessionId);
+
+  return response.status(200).json({
+    success: true,
+    data: result,
   });
 }
