@@ -13,6 +13,9 @@ Luminous-Backend
 │   │   ├── error.middleware.ts
 │   │   └── rate-limit.middleware.ts
 │   ├── models
+│   │   ├── chat.model.ts
+│   │   ├── message.model.ts
+│   │   ├── password-reset.model.ts
 │   │   ├── password.service.ts
 │   │   ├── session.model.ts
 │   │   └── user.model.ts
@@ -31,8 +34,10 @@ Luminous-Backend
 │   │   ├── auth
 │   │   │   ├── auth.service.ts
 │   │   │   └── token.service.ts
-│   │   └── chat
-│   │       └── chat.service.ts
+│   │   ├── chat
+│   │   │   └── chat.service.ts
+│   │   └── email
+│   │       └── email.service.ts
 │   ├── utils
 │   │   └── app-error.ts
 │   ├── app.ts
