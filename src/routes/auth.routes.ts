@@ -11,6 +11,9 @@ import {
   deleteUserAccount,
   getSessions,
   revokeUserSession,
+  forgotPasswordController,
+  verifyResetOtpController,
+  resetPasswordController,
 } from "../controllers/auth.controller.js";
 
 import { authMiddleware } from "../middleware/auth.middleware.js";
@@ -44,5 +47,14 @@ router.delete("/account", authMiddleware, deleteUserAccount);
 // SESSIONS
 router.get("/sessions", authMiddleware, getSessions);
 router.delete("/sessions/:id", authMiddleware, revokeUserSession);
+
+// FORGOT PASSWORD
+router.post("/forgot-password", forgotPasswordController);
+
+// VERIFY RESET OTP
+router.post("/verify-reset-otp", verifyResetOtpController);
+
+// RESET PASSWORD
+router.post("/reset-password", resetPasswordController);
 
 export default router;

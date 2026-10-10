@@ -28,3 +28,21 @@ export function hashRefreshToken(token: string): string {
 export function verifyAccessToken(token: string) {
   return jwt.verify(token, env.JWT_ACCESS_SECRET);
 }
+
+// OTP
+export function createOtp(): string {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+export function hashOtp(otp: string): string {
+  return crypto.createHash("sha256").update(otp).digest("hex");
+}
+
+// Password reset token
+export function createPasswordResetToken(): string {
+  return crypto.randomBytes(48).toString("hex");
+}
+
+export function hashPasswordResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}

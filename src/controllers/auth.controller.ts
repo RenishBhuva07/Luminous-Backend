@@ -7,6 +7,9 @@ import {
   refreshTokenSchema,
   changePasswordSchema,
   deleteAccountSchema,
+  forgotPasswordSchema,
+  verifyResetOtpSchema,
+  resetPasswordSchema,
 } from "../schemas/auth.schema.js";
 
 import {
@@ -20,6 +23,9 @@ import {
   deleteAccount,
   getActiveSessions,
   revokeSession,
+  forgotPassword,
+  verifyResetOtp,
+  resetPassword,
 } from "../services/auth/auth.service.js";
 
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
@@ -192,7 +198,7 @@ export async function getSessions(request: Request, response: Response) {
 // Revoke Session
 export async function revokeUserSession(request: Request, response: Response) {
   const userId = (request as AuthenticatedRequest).userId;
-  const sessionId = request.params.id;
+  const sessionId = request.params.id as string;
 
   if (!userId) {
     return response.status(401).json({
@@ -200,7 +206,7 @@ export async function revokeUserSession(request: Request, response: Response) {
       message: "Authentication required",
     });
   }
-  
+
   if (!sessionId) {
     return response.status(400).json({
       success: false,
@@ -209,6 +215,62 @@ export async function revokeUserSession(request: Request, response: Response) {
   }
 
   const result = await revokeSession(userId, sessionId);
+
+  return response.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+// Forgot Password Controller
+export async function forgotPasswordController(
+  request: Request,
+  response: Response,
+) {
+  console.log("1. FORGOT PASSWORD CONTROLLER HIT");
+  console.log("Request body:", request.body);
+
+  const input = forgotPasswordSchema.parse(request.body);
+
+  console.log("2. Email:", input.email);
+
+  const result = await forgotPassword(input.email);
+
+  console.log("3. FORGOT PASSWORD SERVICE COMPLETED");
+
+  return response.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+// Verify Reset OTP Controller
+export async function verifyResetOtpController(
+  request: Request,
+  response: Response,
+) {
+  const input = verifyResetOtpSchema.parse(request.body);
+
+  const result = await verifyResetOtp(input.email, input.otp);
+
+  return response.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+// Reset Password Controller
+export async function resetPasswordController(
+  request: Request,
+  response: Response,
+) {
+  const input = resetPasswordSchema.parse(request.body);
+
+  const result = await resetPassword(
+    input.email,
+    input.resetToken,
+    input.newPassword,
+  );
 
   return response.status(200).json({
     success: true,

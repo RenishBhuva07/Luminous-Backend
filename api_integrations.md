@@ -31,7 +31,10 @@ AUTH
 ├── PATCH  /auth/profile
 │
 ├── PATCH  /auth/password
-└── DELETE /auth/account
+├── DELETE /auth/account
+│
+├── GET    /auth/sessions
+└── DELETE /auth/sessions/:id
 ```
 
 - `POST /auth/register` - Register a new user.
@@ -42,6 +45,8 @@ AUTH
 - `PATCH /auth/profile` - Complete or update the profile of the authenticated user (Requires Auth).
 - `PATCH /auth/password` - Change the user's password (Requires Auth).
 - `DELETE /auth/account` - Delete the user's account (Requires Auth).
+- `GET /auth/sessions` - Retrieve all active sessions for the user (Requires Auth).
+- `DELETE /auth/sessions/:id` - Revoke a specific active session (Requires Auth).
 
 ## 3. Chat
 **Base path:** `/chats`

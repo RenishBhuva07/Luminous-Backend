@@ -18,6 +18,10 @@ const envSchema = z.object({
   REFRESH_TOKEN_EXPIRES_IN: z.string().default("30d"),
 
   DATABASE_URL: z.string().optional(),
+
+  RESEND_API_KEY: z.string().min(1),
+
+  RESEND_FROM_EMAIL: z.string().min(1),
 });
 
 const result = envSchema.safeParse(process.env);

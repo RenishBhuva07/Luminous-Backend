@@ -15,7 +15,6 @@ Luminous-Backend
 │   ├── models
 │   │   ├── password.service.ts
 │   │   ├── session.model.ts
-│   │   ├── token.service.ts
 │   │   └── user.model.ts
 │   ├── routes
 │   │   ├── auth.routes.ts
@@ -30,7 +29,8 @@ Luminous-Backend
 │   │   │   ├── gemini.client.ts
 │   │   │   └── gemini.service.ts
 │   │   ├── auth
-│   │   │   └── auth.service.ts
+│   │   │   ├── auth.service.ts
+│   │   │   └── token.service.ts
 │   │   └── chat
 │   │       └── chat.service.ts
 │   ├── utils

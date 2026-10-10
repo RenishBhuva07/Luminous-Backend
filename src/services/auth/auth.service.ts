@@ -5,10 +5,17 @@ import { AppError } from "../../utils/app-error.js";
 import { hashPassword, verifyPassword } from "../../models/password.service.js";
 
 import {
+  createOtp,
+  hashOtp,
+  createPasswordResetToken,
+  hashPasswordResetToken,
   createAccessToken,
   createRefreshToken,
   hashRefreshToken,
 } from "./token.service.js";
+
+import { sendPasswordResetOtp } from "../email/email.service.js";
+import { PasswordReset } from "../../models/password-reset.model.js";
 
 interface RegisterInput {
   email: string;
@@ -404,4 +411,179 @@ export async function revokeSession(userId: string, sessionId: string) {
   }
 
   return { message: "Session revoked successfully" };
+}
+
+export async function forgotPassword(emailInput: string) {
+  console.log("4. FORGOT PASSWORD SERVICE HIT");
+
+  const email = emailInput.trim().toLowerCase();
+
+  console.log("Email:", email);
+
+  const user = await User.findOne({ email });
+
+  console.log("User found:", user ? "YES" : "NO");
+
+  if (!user) {
+    console.log("USER NOT FOUND");
+    console.log("Resend will NOT be called");
+
+    return {
+      message:
+        "If an account exists with this email, a verification code has been sent.",
+    };
+  }
+
+  console.log("User exists:", user.email);
+
+  await PasswordReset.deleteMany({
+    userId: user._id,
+  });
+
+  console.log("Old password reset records deleted");
+
+  const otp = createOtp();
+
+  console.log("OTP generated:", otp);
+
+  const otpHash = hashOtp(otp);
+
+  const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await PasswordReset.create({
+    userId: user._id,
+    email: user.email,
+    otpHash,
+    otpExpiresAt,
+    attempts: 0,
+  });
+
+  console.log("OTP saved to MongoDB");
+
+  await sendPasswordResetOtp(user.email, otp);
+
+  console.log("sendPasswordResetOtp completed");
+
+  return {
+    message:
+      "If an account exists with this email, a verification code has been sent.",
+  };
+}
+
+export async function verifyResetOtp(emailInput: string, otp: string) {
+  const email = emailInput.trim().toLowerCase();
+
+  const reset = await PasswordReset.findOne({ email });
+
+  if (!reset) {
+    throw new AppError("Invalid or expired OTP", 400, "INVALID_RESET_OTP");
+  }
+
+  // Check OTP expiry
+  if (reset.otpExpiresAt.getTime() <= Date.now()) {
+    await PasswordReset.deleteOne({ _id: reset._id });
+
+    throw new AppError("OTP has expired", 400, "RESET_OTP_EXPIRED");
+  }
+
+  // Maximum 5 attempts
+  if (reset.attempts >= 5) {
+    await PasswordReset.deleteOne({ _id: reset._id });
+
+    throw new AppError(
+      "Too many incorrect OTP attempts",
+      429,
+      "RESET_OTP_ATTEMPTS_EXCEEDED",
+    );
+  }
+
+  const otpHash = hashOtp(otp);
+
+  // Wrong OTP
+  if (otpHash !== reset.otpHash) {
+    reset.attempts += 1;
+    await reset.save();
+
+    throw new AppError("Invalid OTP", 400, "INVALID_RESET_OTP");
+  }
+
+  // OTP is correct
+  const resetToken = createPasswordResetToken();
+
+  reset.resetTokenHash = hashPasswordResetToken(resetToken);
+
+  reset.resetTokenExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  reset.verifiedAt = new Date();
+
+  await reset.save();
+
+  return {
+    resetToken,
+    expiresIn: 600,
+  };
+}
+
+export async function resetPassword(
+  emailInput: string,
+  resetToken: string,
+  newPassword: string,
+) {
+  const email = emailInput.trim().toLowerCase();
+
+  const resetTokenHash = hashPasswordResetToken(resetToken);
+
+  const reset = await PasswordReset.findOne({
+    email,
+    resetTokenHash,
+  });
+
+  if (!reset) {
+    throw new AppError(
+      "Invalid or expired reset token",
+      400,
+      "INVALID_RESET_TOKEN",
+    );
+  }
+
+  if (!reset.resetTokenExpiresAt) {
+    throw new AppError("Invalid reset request", 400, "INVALID_RESET_REQUEST");
+  }
+
+  if (reset.resetTokenExpiresAt.getTime() <= Date.now()) {
+    await PasswordReset.deleteOne({
+      _id: reset._id,
+    });
+
+    throw new AppError("Reset token has expired", 400, "RESET_TOKEN_EXPIRED");
+  }
+
+  if (!reset.verifiedAt) {
+    throw new AppError("OTP verification is required", 400, "OTP_NOT_VERIFIED");
+  }
+
+  const user = await User.findById(reset.userId).select("+passwordHash");
+
+  if (!user) {
+    throw new AppError("User not found", 404, "USER_NOT_FOUND");
+  }
+
+  // Hash new password
+  user.passwordHash = await hashPassword(newPassword);
+
+  await user.save();
+
+  // Invalidate every existing login
+  await Session.deleteMany({
+    userId: user._id,
+  });
+
+  // Make reset token one-time use
+  await PasswordReset.deleteOne({
+    _id: reset._id,
+  });
+
+  return {
+    message: "Password reset successfully",
+  };
 }
